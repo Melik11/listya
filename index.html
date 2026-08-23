@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Симулятор Уборщика Парка - Три Острова</title>
+    <style>
+        /* стили без изменений */
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; touch-action: none; user-select: none; }
+        #ui { position: absolute; top: 20px; right: 20px; color: white; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 12px; font-size: 16px; pointer-events: none; text-align: right; backdrop-filter: blur(5px); z-index: 10; }
+        #bag-progress-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 300px; max-width: 80%; z-index: 10; }
+        #bag-progress-label { color: white; font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        #bag-progress-bar { width: 100%; height: 25px; background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; overflow: hidden; position: relative; backdrop-filter: blur(5px); }
+        #bag-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #2ecc71 0%, #f39c12 50%, #e74c3c 100%); transition: width 0.3s ease-out; border-radius: 10px; }
+        #bag-progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 13px; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+        #joystick-container { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; touch-action: none; z-index: 10; }
+        #joystick-handle { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.8); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #camera-zone { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; z-index: 1; }
+        #action-btn { position: absolute; bottom: 60px; right: 40px; width: 80px; height: 80px; background: rgba(255, 165, 0, 0.6); border: 3px solid rgba(255,255,255,0.8); border-radius: 50%; color: white; font-weight: bold; font-size: 14px; text-align: center; display: flex; align-items: center; justify-content: center; cursor: pointer; touch-action: none; opacity: 0; transform: scale(0.8); pointer-events: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 10; }
+        #action-btn.active { opacity: 1; transform: scale(1); pointer-events: auto; background: rgba(255, 165, 0, 0.9); }
+        #jump-btn { position: absolute; bottom: 160px; right: 40px; width: 70px; height: 70px; background: rgba(52, 152, 219, 0.6); border: 3px solid rgba(255,255,255,0.8); border-radius: 50%; color: white; font-weight: bold; font-size: 18px; text-align: center; display: flex; align-items: center; justify-content: center; cursor: pointer; touch-action: none; opacity: 1; pointer-events: auto; transition: all 0.2s; z-index: 10; }
+        #jump-btn:active { background: rgba(52, 152, 219, 0.9); transform: scale(0.9); }
+        #notification { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.8); background: rgba(46, 204, 113, 0.9); color: white; padding: 15px 30px; border-radius: 15px; font-size: 22px; font-weight: bold; opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; z-index: 1000; }
+        #notification.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        #shop-btn { position: absolute; top: 130px; right: 20px; padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold; font-size: 16px; border: 2px solid white; border-radius: 12px; cursor: pointer; touch-action: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s; z-index: 10; }
+        #shop-btn:active { transform: scale(0.95); }
+        #shop-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(10px); }
+        #shop-modal.active { display: flex; }
+        .shop-content { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); width: 90%; max-width: 500px; max-height: 85vh; border-radius: 20px; padding: 20px; color: white; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .shop-header h2 { margin: 0; font-size: 24px; }
+        .shop-close { background: #e74c3c; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 18px; cursor: pointer; font-weight: bold; }
+        .shop-coins { background: rgba(255, 215, 0, 0.2); padding: 8px 12px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; text-align: center; font-size: 18px; }
+        .shop-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .shop-tab { flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .shop-tab.active { background: rgba(255,255,255,0.2); border-color: #f39c12; }
+        .shop-list { display: flex; flex-direction: column; gap: 10px; }
+        .shop-item { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .shop-item.current { border-color: #2ecc71; background: rgba(46, 204, 113, 0.15); }
+        .shop-item.owned { opacity: 0.6; }
+        .item-info { flex: 1; }
+        .item-name { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
+        .item-desc { font-size: 13px; opacity: 0.8; }
+        .buy-btn { padding: 10px 15px; background: #f39c12; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; min-width: 90px; }
+        .buy-btn:disabled { background: #7f8c8d; cursor: not-allowed; }
+        .buy-btn:not(:disabled):hover { background: #e67e22; }
+        .buy-btn.owned-btn { background: #2ecc71; cursor: default; }
+    </style>
+</head>
+<body>
+
+    <div id="bag-progress-container">
+        <div id="bag-progress-label">🎒 Мешок</div>
+        <div id="bag-progress-bar">
+            <div id="bag-progress-fill"></div>
+            <div id="bag-progress-text">0 / 10</div>
+        </div>
+    </div>
+
+    <div id="ui">
+        💰 <span id="coinCount">0</span><br>
+        <span id="currentToolName" style="font-size: 13px; opacity: 0.8;">🤲 Голые руки</span>
+    </div>
+
+    <button id="shop-btn">🛒 Магазин (M)</button>
+    <div id="notification">+10 монет!</div>
+    <div id="action-btn">Собрать<br>(E)</div>
+    <button id="jump-btn">⤒</button>
+
+    <div id="camera-zone"></div>
+    <div id="joystick-container"><div id="joystick-handle"></div></div>
+
+    <div id="shop-modal">
+        <div class="shop-content">
+            <div class="shop-header">
+                <h2>🛒 Магазин</h2>
+                <button class="shop-close" id="shop-close">✕</button>
+            </div>
+            <div class="shop-coins" id="shop-coins">💰 Монет: 0</div>
+            <div class="shop-tabs">
+                <button class="shop-tab active" data-tab="tools">🧹 Инструменты</button>
+                <button class="shop-tab" data-tab="bags">🎒 Мешки</button>
+                <button class="shop-tab" data-tab="locations">🗺️ Локации</button>
+            </div>
+            <div class="shop-list" id="tools-list"></div>
+            <div class="shop-list" id="bags-list" style="display: none;"></div>
+            <div class="shop-list" id="locations-list" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="https://yandex.ru/games/sdk/v2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // ---------- ЗВУК (без изменений) ----------
+        let audioCtx = null;
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        function playSound(freq, duration, type = 'sine', volume = 0.15) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+        function playCollectSound() { playSound(800, 0.15, 'sine', 0.2); }
+        function playCoinSound() { playSound(1200, 0.2, 'triangle', 0.3); }
+        function playBuySound() { playSound(600, 0.3, 'sawtooth', 0.15); }
+        function playUnlockSound() { playSound(1000, 0.5, 'sine', 0.3); }
+        function playJumpSound() { playSound(400, 0.2, 'sine', 0.1); }
+        function playAppleSound() { playSound(1400, 0.15, 'sine', 0.25); }
+        function playFlowerSound() { playSound(1000, 0.12, 'sine', 0.2); }
+        function playMushroomSound() { playSound(600, 0.2, 'sawtooth', 0.15); }
+
+        // ---------- YANDEX SDK (без изменений) ----------
+        let ysdk = null;
+        if (typeof YaGames !== 'undefined') {
+            YaGames.init().then(sdk => { ysdk = sdk; console.log('✅ SDK загружен!'); })
+            .catch(() => console.log('⚠️ SDK не загрузился'));
+        }
+
+        // ---------- МАССИВ ИНСТРУМЕНТОВ (без изменений) ----------
+        const toolsData = [
+            { id: 'hands', name: '🤲 Голые руки', desc: 'Радиус 0.8м, 1 лист', price: 0, radius: 0.8, perCollect: 1 },
+            { id: 'scoop', name: '🧹 Совок', desc: 'Радиус 1.2м, 2 листа', price: 20, radius: 1.2, perCollect: 2 },
+            { id: 'broom', name: '🧹 Метла', desc: 'Радиус 1.8м, 3 листа', price: 50, radius: 1.8, perCollect: 3 },
+            { id: 'brush', name: '🧹 Веник', desc: 'Радиус 2.5м, 4 листа', price: 100, radius: 2.5, perCollect: 4 },
+            { id: 'vacuum', name: '🌪 Пылесос', desc: 'Радиус 3.5м, 6 листов', price: 300, radius: 3.5, perCollect: 6 },
+            { id: 'heavy_vacuum', name: '⚡ Мощный пылесос', desc: 'Радиус 5.0м, 8 листов', price: 600, radius: 5.0, perCollect: 8 },
+            { id: 'blower', name: '💨 Листодувка', desc: 'Радиус 7.0м, 12 листов', price: 1500, radius: 7.0, perCollect: 12 },
+            { id: 'industrial_fan', name: '🌀 Промышленный вентилятор', desc: 'Радиус 10.0м, 20 листов', price: 4000, radius: 10.0, perCollect: 20 },
+            { id: 'tornado', name: '🌪️ Торнадо', desc: 'Радиус 15м, 50 листов', price: 10000, radius: 15, perCollect: 50 }
+        ];
+
+        // ---------- ДАННЫЕ МЕШКОВ (без изменений) ----------
+        const bagsData = [
+            { id: 'pockets', name: '👖 Карманы', desc: 'Вместимость: 10', price: 0, capacity: 10 },
+            { id: 'smallbag', name: '🎒 Рюкзачок', desc: 'Вместимость: 50', price: 30, capacity: 50 },
+            { id: 'bigbag', name: '🧳 Большой мешок', desc: 'Вместимость: 200', price: 200, capacity: 200 },
+            { id: 'cart', name: '🛒 Тележка', desc: 'Вместимость: 1000', price: 1000, capacity: 1000 },
+            { id: 'portal', name: '🌀 Портал', desc: 'Вместимость: 9999', price: 8000, capacity: 9999 }
+        ];
+
+        // ---------- ДАННЫЕ ЛОКАЦИЙ (добавлен третий остров) ----------
+        const locationsData = [
+            { id: 'island1', name: '🏝️ Уютный остров', desc: 'Стартовая локация', price: 0, unlocked: true },
+            { id: 'island2', name: '☁️ Облачный остров', desc: 'Выше в небе, больше листьев', price: 500, unlocked: false },
+            { id: 'island3', name: '🌌 Небесный остров', desc: 'Самый верхний, быстрый спавн', price: 2000, unlocked: false }
+        ];
+
+        // ---------- СОСТОЯНИЕ ИГРОКА (без изменений) ----------
+        let currentToolIndex = parseInt(localStorage.getItem('toolIndex')) || 0;
+        if (currentToolIndex >= toolsData.length) currentToolIndex = 0;
+        let currentBagIndex = parseInt(localStorage.getItem('bagIndex')) || 0;
+        if (currentBagIndex >= bagsData.length) currentBagIndex = 0;
+        let coins = parseInt(localStorage.getItem('coins')) || 0;
+        let currentLeaves = parseInt(localStorage.getItem('leaves')) || 0;
+        let unlockedLocations = JSON.parse(localStorage.getItem('unlockedLocations')) || ['island1'];
+
+        function saveProgress() {
+            localStorage.setItem('toolIndex', currentToolIndex);
+            localStorage.setItem('bagIndex', currentBagIndex);
+            localStorage.setItem('coins', coins);
+            localStorage.setItem('leaves', currentLeaves);
+            localStorage.setItem('unlockedLocations', JSON.stringify(unlockedLocations));
+        }
+
+        // ---------- НАСТРОЙКИ ОСТРОВОВ (добавлен island3) ----------
+        const ISLAND1_RADIUS = 20;
+        const ISLAND1_TOP_HEIGHT = 3;
+        const ISLAND1_CONE_HEIGHT = 9;
+        const ISLAND1_Y = 0;
+        
+        const ISLAND2_RADIUS = 15;
+        const ISLAND2_TOP_HEIGHT = 2.5;
+        const ISLAND2_CONE_HEIGHT = 7.5;
+        const ISLAND2_Y = 10;
+        const ISLAND2_OFFSET = 50;
+
+        // Новые параметры третьего острова
+        const ISLAND3_RADIUS = 18;
+        const ISLAND3_TOP_HEIGHT = 3;
+        const ISLAND3_CONE_HEIGHT = 9;
+        const ISLAND3_Y = 20;           // выше второго
+        const ISLAND3_OFFSET = 110;     // дальше по X
+
+        const islandConfigs = {
+            island1: {
+                id: 'island1',
+                radius: ISLAND1_RADIUS,
+                y: ISLAND1_Y,
+                offsetX: 0,
+                spawnRate: 8,
+                pricePerLeaf: 1,
+                maxLeaves: 30,
+                flowerSpawnRate: 12,
+                mushroomSpawnRate: 15,
+                maxFlowers: 8,
+                maxMushrooms: 6
+            },
+            island2: {
+                id: 'island2',
+                radius: ISLAND2_RADIUS,
+                y: ISLAND2_Y,
+                offsetX: ISLAND2_OFFSET,
+                spawnRate: 4,
+                pricePerLeaf: 2,
+                maxLeaves: 25,
+                flowerSpawnRate: 10,
+                mushroomSpawnRate: 12,
+                maxFlowers: 10,
+                maxMushrooms: 8
+            },
+            island3: {
+                id: 'island3',
+                radius: ISLAND3_RADIUS,
+                y: ISLAND3_Y,
+                offsetX: ISLAND3_OFFSET,
+                spawnRate: 2,           // быстрее (меньше интервал)
+                pricePerLeaf: 3,        // выше цена
+                maxLeaves: 35,
+                flowerSpawnRate: 8,
+                mushroomSpawnRate: 10,
+                maxFlowers: 12,
+                maxMushrooms: 10
+            }
+        };
+
+        // ---------- СЦЕНА THREE.JS (без изменений до добавления объектов) ----------
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x99CCFF);
+        scene.fog = new THREE.Fog(0x99CCFF, 25, 150); // увеличена дальность тумана для третьего острова
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 300);
+        scene.add(camera);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xfff0dd, 0.9);
+        dirLight.position.set(15, 30, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 300;
+        dirLight.shadow.camera.left = -100;
+        dirLight.shadow.camera.right = 150;
+        dirLight.shadow.camera.top = 100;
+        dirLight.shadow.camera.bottom = -100;
+        scene.add(dirLight);
+
+        const handLight = new THREE.PointLight(0xffffff, 0.5, 10);
+        handLight.position.set(0.5, 0, -1);
+        camera.add(handLight);
+
+        // ---------- РУКА И ИНСТРУМЕНТЫ (без изменений) ----------
+        const handModel = new THREE.Group();
+        camera.add(handModel);
+        handModel.position.set(0.5, -0.4, -0.8);
+        handModel.rotation.set(0.3, -0.4, 0.2);
+        
+        let handBob = 0;
+        let handSwing = 0;
+
+        function buildHand(toolIndex) {
+            while(handModel.children.length > 0) { 
+                handModel.remove(handModel.children[0]); 
+            }
+
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffccaa, roughness: 0.6 });
+            const gloveMat = new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.7 });
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.6 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.5 });
+            const blueMat = new THREE.MeshStandardMaterial({ color: 0x3366cc, roughness: 0.5 });
+            const greenMat = new THREE.MeshStandardMaterial({ color: 0x33aa33, roughness: 0.5 });
+
+            const armGeo = new THREE.BoxGeometry(0.15, 0.15, 0.5);
+            const arm = new THREE.Mesh(armGeo, gloveMat);
+            arm.position.set(0, 0, 0.25);
+            arm.castShadow = false;
+            handModel.add(arm);
+
+            const handGeo = new THREE.BoxGeometry(0.16, 0.16, 0.2);
+            const hand = new THREE.Mesh(handGeo, gloveMat);
+            hand.position.set(0, 0, -0.1);
+            hand.castShadow = false;
+            handModel.add(hand);
+
+            if (toolIndex === 0) {
+                hand.material = skinMat;
+                arm.material = skinMat;
+            } else if (toolIndex === 1) {
+                const handleGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.8, 6);
+                const handle = new THREE.Mesh(handleGeo, woodMat);
+                handle.position.set(0, 0.1, -0.3);
+                handle.rotation.x = 0.8;
+                handle.castShadow = false;
+                handModel.add(handle);
+                const bladeGeo = new THREE.BoxGeometry(0.2, 0.02, 0.15);
+                const blade = new THREE.Mesh(bladeGeo, metalMat);
+                blade.position.set(0, -0.3, -0.6);
+                blade.rotation.x = 0.8;
+                blade.castShadow = false;
+                handModel.add(blade);
+            } else if (toolIndex === 2) {
+                const handleGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.4, 8);
+                const handle = new THREE.Mesh(handleGeo, woodMat);
+                handle.position.set(0, 0.2, -0.4);
+                handle.rotation.x = 0.6;
+                handle.castShadow = false;
+                handModel.add(handle);
+                const bristleGeo = new THREE.BoxGeometry(0.4, 0.1, 0.15);
+                const bristleMat = new THREE.MeshStandardMaterial({ color: 0xDAA520, roughness: 0.9 });
+                const bristle = new THREE.Mesh(bristleGeo, bristleMat);
+                bristle.position.set(0, -0.4, -0.8);
+                bristle.rotation.x = 0.6;
+                bristle.castShadow = false;
+                handModel.add(bristle);
+            } else if (toolIndex === 3) {
+                const handleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.2, 8);
+                const handle = new THREE.Mesh(handleGeo, redMat);
+                handle.position.set(0, 0.2, -0.35);
+                handle.rotation.x = 0.6;
+                handle.castShadow = false;
+                handModel.add(handle);
+                const bristleGeo = new THREE.BoxGeometry(0.5, 0.12, 0.2);
+                const bristleMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
+                const bristle = new THREE.Mesh(bristleGeo, bristleMat);
+                bristle.position.set(0, -0.45, -0.75);
+                bristle.rotation.x = 0.6;
+                bristle.castShadow = false;
+                handModel.add(bristle);
+            } else if (toolIndex === 4) {
+                const vacGeo = new THREE.BoxGeometry(0.25, 0.2, 0.4);
+                const vac = new THREE.Mesh(vacGeo, metalMat);
+                vac.position.set(0, 0, -0.3);
+                vac.castShadow = false;
+                handModel.add(vac);
+                const tubeGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8);
+                const tubeMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 });
+                const tube = new THREE.Mesh(tubeGeo, tubeMat);
+                tube.rotation.x = Math.PI / 2;
+                tube.position.set(0, 0.05, -0.6);
+                tube.castShadow = false;
+                handModel.add(tube);
+            } else if (toolIndex === 5) {
+                const vacGeo = new THREE.BoxGeometry(0.35, 0.25, 0.5);
+                const vacMat = new THREE.MeshStandardMaterial({ color: 0xcc5500, roughness: 0.4, metalness: 0.5 });
+                const vac = new THREE.Mesh(vacGeo, vacMat);
+                vac.position.set(0, 0, -0.35);
+                vac.castShadow = false;
+                handModel.add(vac);
+                const tubeGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8);
+                const tubeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 });
+                const tube = new THREE.Mesh(tubeGeo, tubeMat);
+                tube.rotation.x = Math.PI / 2;
+                tube.position.set(0, 0.05, -0.7);
+                tube.castShadow = false;
+                handModel.add(tube);
+            } else if (toolIndex === 6) {
+                const blowerGeo = new THREE.CylinderGeometry(0.08, 0.15, 0.6, 8);
+                const blowerMat = new THREE.MeshStandardMaterial({ color: 0xff6600, roughness: 0.6 });
+                const blower = new THREE.Mesh(blowerGeo, blowerMat);
+                blower.rotation.x = Math.PI / 2;
+                blower.position.set(0, 0, -0.4);
+                blower.castShadow = false;
+                handModel.add(blower);
+            } else if (toolIndex === 7) {
+                const bodyGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 8);
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3399ff, roughness: 0.4, metalness: 0.3 });
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.rotation.x = Math.PI / 2;
+                body.position.set(0, 0, -0.4);
+                body.castShadow = false;
+                handModel.add(body);
+                const bladeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.5, metalness: 0.2 });
+                const blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.02, 0.06), bladeMat);
+                blade1.position.set(0, 0, -0.4);
+                blade1.castShadow = false;
+                handModel.add(blade1);
+                const blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.06), bladeMat);
+                blade2.position.set(0, 0, -0.4);
+                blade2.castShadow = false;
+                handModel.add(blade2);
+            } else if (toolIndex === 8) {
+                const magicMat = new THREE.MeshStandardMaterial({ color: 0x4a0080, emissive: 0x220044, roughness: 0.4 });
+                handModel.children.forEach(c => { if(c.isMesh) c.material = magicMat; });
+                const orbGeo = new THREE.SphereGeometry(0.12, 16, 16);
+                const orbMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 2 });
+                const orb = new THREE.Mesh(orbGeo, orbMat);
+                orb.position.set(0, 0.1, -0.2);
+                orb.castShadow = false;
+                handModel.add(orb);
+            }
+        }
+
+        // ---------- ПОСТРОЕНИЕ ОСТРОВОВ (добавлен остров 3) ----------
+        const dirtMat = new THREE.MeshStandardMaterial({ color: 0x5C4033, roughness: 1.0 });
+        const grassMat = new THREE.MeshStandardMaterial({ color: 0x556B2F, roughness: 0.9 });
+        const grassMat2 = new THREE.MeshStandardMaterial({ color: 0x7FB069, roughness: 0.9 });
+        const grassMat3 = new THREE.MeshStandardMaterial({ color: 0x9ACD32, roughness: 0.9 }); // новый цвет для третьего острова
+
+        // Остров 1
+        const island1TopGeo = new THREE.CylinderGeometry(ISLAND1_RADIUS, ISLAND1_RADIUS, ISLAND1_TOP_HEIGHT, 32);
+        const island1Top = new THREE.Mesh(island1TopGeo, [dirtMat, grassMat, dirtMat]);
+        island1Top.position.y = ISLAND1_Y - ISLAND1_TOP_HEIGHT / 2;
+        island1Top.receiveShadow = true; island1Top.castShadow = true;
+        scene.add(island1Top);
+
+        const island1ConeGeo = new THREE.CylinderGeometry(ISLAND1_RADIUS, ISLAND1_RADIUS * 0.2, ISLAND1_CONE_HEIGHT, 32);
+        const island1Cone = new THREE.Mesh(island1ConeGeo, [dirtMat, dirtMat, dirtMat]);
+        island1Cone.position.y = ISLAND1_Y - ISLAND1_TOP_HEIGHT - ISLAND1_CONE_HEIGHT / 2;
+        island1Cone.receiveShadow = true; island1Cone.castShadow = true;
+        scene.add(island1Cone);
+
+        // Остров 2
+        const island2TopGeo = new THREE.CylinderGeometry(ISLAND2_RADIUS, ISLAND2_RADIUS, ISLAND2_TOP_HEIGHT, 32);
+        const island2Top = new THREE.Mesh(island2TopGeo, [dirtMat, grassMat2, dirtMat]);
+        island2Top.position.set(ISLAND2_OFFSET, ISLAND2_Y - ISLAND2_TOP_HEIGHT / 2, 0);
+        island2Top.receiveShadow = true; island2Top.castShadow = true;
+        scene.add(island2Top);
+
+        const island2ConeGeo = new THREE.CylinderGeometry(ISLAND2_RADIUS, ISLAND2_RADIUS * 0.2, ISLAND2_CONE_HEIGHT, 32);
+        const island2Cone = new THREE.Mesh(island2ConeGeo, [dirtMat, dirtMat, dirtMat]);
+        island2Cone.position.set(ISLAND2_OFFSET, ISLAND2_Y - ISLAND2_TOP_HEIGHT - ISLAND2_CONE_HEIGHT / 2, 0);
+        island2Cone.receiveShadow = true; island2Cone.castShadow = true;
+        scene.add(island2Cone);
+
+        // Остров 3 (новый)
+        const island3TopGeo = new THREE.CylinderGeometry(ISLAND3_RADIUS, ISLAND3_RADIUS, ISLAND3_TOP_HEIGHT, 32);
+        const island3Top = new THREE.Mesh(island3TopGeo, [dirtMat, grassMat3, dirtMat]);
+        island3Top.position.set(ISLAND3_OFFSET, ISLAND3_Y - ISLAND3_TOP_HEIGHT / 2, 0);
+        island3Top.receiveShadow = true; island3Top.castShadow = true;
+        scene.add(island3Top);
+
+        const island3ConeGeo = new THREE.CylinderGeometry(ISLAND3_RADIUS, ISLAND3_RADIUS * 0.2, ISLAND3_CONE_HEIGHT, 32);
+        const island3Cone = new THREE.Mesh(island3ConeGeo, [dirtMat, dirtMat, dirtMat]);
+        island3Cone.position.set(ISLAND3_OFFSET, ISLAND3_Y - ISLAND3_TOP_HEIGHT - ISLAND3_CONE_HEIGHT / 2, 0);
+        island3Cone.receiveShadow = true; island3Cone.castShadow = true;
+        scene.add(island3Cone);
+
+        // ---------- МОСТЫ ----------
+        // Мост 1 (остров 1 -> остров 2)
+        const bridge1StartX = ISLAND1_RADIUS;
+        const bridge1EndX = ISLAND2_OFFSET - ISLAND2_RADIUS;
+        const bridge1StartY = ISLAND1_Y;
+        const bridge1EndY = ISLAND2_Y;
+        const deltaX1 = bridge1EndX - bridge1StartX;
+        const deltaY1 = bridge1EndY - bridge1StartY;
+        const bridge1Length = Math.sqrt(deltaX1*deltaX1 + deltaY1*deltaY1);
+        const bridge1Angle = Math.atan2(deltaY1, deltaX1);
+
+        const bridge1Geo = new THREE.BoxGeometry(bridge1Length, 0.5, 3);
+        const bridge1Mat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8 });
+        const bridge1 = new THREE.Mesh(bridge1Geo, bridge1Mat);
+        bridge1.position.set((bridge1StartX + bridge1EndX)/2, (bridge1StartY + bridge1EndY)/2, 0);
+        bridge1.rotation.z = bridge1Angle;
+        bridge1.receiveShadow = true; bridge1.castShadow = true;
+        scene.add(bridge1);
+
+        const rail1Geo = new THREE.BoxGeometry(bridge1Length, 0.2, 0.2);
+        const rail1Mat = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const rail1_1 = new THREE.Mesh(rail1Geo, rail1Mat);
+        rail1_1.position.set((bridge1StartX + bridge1EndX)/2, (bridge1StartY + bridge1EndY)/2 + 1, 1.4);
+        rail1_1.rotation.z = bridge1Angle;
+        scene.add(rail1_1);
+        const rail1_2 = new THREE.Mesh(rail1Geo, rail1Mat);
+        rail1_2.position.set((bridge1StartX + bridge1EndX)/2, (bridge1StartY + bridge1EndY)/2 + 1, -1.4);
+        rail1_2.rotation.z = bridge1Angle;
+        scene.add(rail1_2);
+
+        // Мост 2 (остров 2 -> остров 3) - новый
+        const bridge2StartX = ISLAND2_OFFSET + ISLAND2_RADIUS;
+        const bridge2EndX = ISLAND3_OFFSET - ISLAND3_RADIUS;
+        const bridge2StartY = ISLAND2_Y;
+        const bridge2EndY = ISLAND3_Y;
+        const deltaX2 = bridge2EndX - bridge2StartX;
+        const deltaY2 = bridge2EndY - bridge2StartY;
+        const bridge2Length = Math.sqrt(deltaX2*deltaX2 + deltaY2*deltaY2);
+        const bridge2Angle = Math.atan2(deltaY2, deltaX2);
+
+        const bridge2Geo = new THREE.BoxGeometry(bridge2Length, 0.5, 3);
+        const bridge2Mat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8 });
+        const bridge2 = new THREE.Mesh(bridge2Geo, bridge2Mat);
+        bridge2.position.set((bridge2StartX + bridge2EndX)/2, (bridge2StartY + bridge2EndY)/2, 0);
+        bridge2.rotation.z = bridge2Angle;
+        bridge2.receiveShadow = true; bridge2.castShadow = true;
+        scene.add(bridge2);
+
+        const rail2Geo = new THREE.BoxGeometry(bridge2Length, 0.2, 0.2);
+        const rail2Mat = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const rail2_1 = new THREE.Mesh(rail2Geo, rail2Mat);
+        rail2_1.position.set((bridge2StartX + bridge2EndX)/2, (bridge2StartY + bridge2EndY)/2 + 1, 1.4);
+        rail2_1.rotation.z = bridge2Angle;
+        scene.add(rail2_1);
+        const rail2_2 = new THREE.Mesh(rail2Geo, rail2Mat);
+        rail2_2.position.set((bridge2StartX + bridge2EndX)/2, (bridge2StartY + bridge2EndY)/2 + 1, -1.4);
+        rail2_2.rotation.z = bridge2Angle;
+        scene.add(rail2_2);
+
+        // ---------- БАРЬЕРЫ ----------
+        const barrier1Geo = new THREE.BoxGeometry(4, 5, 1);
+        const barrier1Mat = new THREE.MeshStandardMaterial({ color: 0xFF0000, transparent: true, opacity: 0.5 });
+        const barrier1 = new THREE.Mesh(barrier1Geo, barrier1Mat);
+        barrier1.position.set(ISLAND1_RADIUS - 1, ISLAND1_Y + 2.5, 0);
+        barrier1.castShadow = true;
+        scene.add(barrier1);
+
+        const barrier2Geo = new THREE.BoxGeometry(4, 5, 1);
+        const barrier2Mat = new THREE.MeshStandardMaterial({ color: 0xFF0000, transparent: true, opacity: 0.5 });
+        const barrier2 = new THREE.Mesh(barrier2Geo, barrier2Mat);
+        barrier2.position.set(bridge2StartX + 1, ISLAND2_Y + 2.5, 0); // расположим на начале второго моста
+        barrier2.castShadow = true;
+        scene.add(barrier2);
+
+        // Сохраним барьеры для удаления при разблокировке
+        const barriers = {
+            island2: barrier1,
+            island3: barrier2
+        };
+
+        // ---------- ПАРЯЩИЕ КАМНИ (без изменений, добавлены новые) ----------
+        const floatingRocks = [];
+        function createFloatingRock(x, y, z, scale) {
+            const geo = new THREE.DodecahedronGeometry(1, 0);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
+            const rock = new THREE.Mesh(geo, mat);
+            rock.position.set(x, y, z);
+            rock.scale.setScalar(scale);
+            rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+            rock.castShadow = true;
+            scene.add(rock);
+            floatingRocks.push({ mesh: rock, baseY: y, speed: 0.5 + Math.random(), offset: Math.random() * Math.PI * 2 });
+        }
+
+        // Существующие камни...
+        createFloatingRock(30, -8, 30, 4);
+        createFloatingRock(-35, -12, -25, 5);
+        createFloatingRock(25, -15, -20, 3);
+        createFloatingRock(-28, -5, 35, 3.5);
+        createFloatingRock(22, -3, 5, 1.5);
+        createFloatingRock(-18, -6, 15, 1.2);
+        createFloatingRock(10, -4, -21, 1.8);
+        createFloatingRock(-15, -7, -18, 1.3);
+        createFloatingRock(20, -2, -10, 1.0);
+        createFloatingRock(-22, -4, 8, 1.4);
+        createFloatingRock(35, -10, 40, 2.0);
+        createFloatingRock(-40, -8, -30, 3.0);
+        createFloatingRock(45, -12, 10, 2.5);
+        createFloatingRock(-30, -14, 25, 2.0);
+        createFloatingRock(15, -9, -30, 1.5);
+        createFloatingRock(-10, -5, -35, 1.8);
+        createFloatingRock(5, -11, 45, 2.2);
+        createFloatingRock(-25, -3, -10, 1.1);
+        createFloatingRock(0, -13, -15, 1.6);
+        createFloatingRock(30, -6, -35, 2.0);
+        createFloatingRock(10, 5, -10, 1.2);
+        createFloatingRock(-5, 8, 20, 1.8);
+        createFloatingRock(40, 12, -20, 2.2);
+        createFloatingRock(-15, 15, 5, 1.5);
+        createFloatingRock(25, 7, -5, 1.0);
+        createFloatingRock(-35, 10, 15, 2.0);
+        createFloatingRock(15, 4, 30, 1.4);
+        createFloatingRock(-20, 6, -15, 1.3);
+        // Дополнительные камни возле третьего острова
+        createFloatingRock(130, 15, 20, 2.5);
+        createFloatingRock(120, 22, -30, 3.0);
+        createFloatingRock(105, 18, 40, 2.0);
+        createFloatingRock(115, 12, -10, 1.8);
+
+        for (let i = 0; i < 30; i++) {
+            const x = (Math.random() - 0.5) * 140;
+            const z = (Math.random() - 0.5) * 140;
+            const y = 2 + Math.random() * 25;
+            const scale = 1 + Math.random() * 3.5;
+            createFloatingRock(x, y, z, scale);
+        }
+
+        // ---------- ОБЛАКА (без изменений) ----------
+        const clouds = [];
+        function createCloud(x, y, z) {
+            const group = new THREE.Group();
+            const cloudMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff, transparent: true, opacity: 0.7,
+                roughness: 0.1, metalness: 0, side: THREE.DoubleSide
+            });
+            const numSpheres = 3 + Math.floor(Math.random() * 5);
+            for (let i = 0; i < numSpheres; i++) {
+                const radius = 1 + Math.random() * 2;
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 8), cloudMat);
+                sphere.position.set((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 4);
+                sphere.scale.y = 0.5 + Math.random() * 0.5;
+                group.add(sphere);
+            }
+            group.position.set(x, y, z);
+            scene.add(group);
+            clouds.push(group);
+            return group;
+        }
+
+        for (let i = 0; i < 12; i++) {
+            createCloud((Math.random() - 0.5) * 140, 15 + Math.random() * 25, (Math.random() - 0.5) * 140);
+        }
+        // Дополнительные облака выше для третьего острова
+        for (let i = 0; i < 5; i++) {
+            createCloud(90 + Math.random() * 50, 25 + Math.random() * 15, (Math.random() - 0.5) * 60);
+        }
+
+        // ---------- ИНДИКАТОР ЗОНЫ СБОРА (без изменений) ----------
+        const COLLECT_OFFSET = 2.5;
+        const zoneCircleGeo = new THREE.CircleGeometry(1, 32);
+        const zoneCircleMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.02, side: THREE.DoubleSide, depthWrite: false });
+        const zoneCircle = new THREE.Mesh(zoneCircleGeo, zoneCircleMat);
+        zoneCircle.rotation.x = -Math.PI / 2;
+        zoneCircle.position.y = 0.05;
+        scene.add(zoneCircle);
+
+        const zoneEdgeGeo = new THREE.EdgesGeometry(zoneCircleGeo);
+        const zoneEdgeMat = new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.15 });
+        const zoneEdge = new THREE.LineSegments(zoneEdgeGeo, zoneEdgeMat);
+        zoneEdge.rotation.x = -Math.PI / 2;
+        zoneEdge.position.y = 0.05;
+        scene.add(zoneEdge);
+
+        // ---------- ДЕРЕВЬЯ (добавлены деревья для третьего острова) ----------
+        function createTree(x, z, y) {
+            const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, 3, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5C4033 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.set(x, y + 1.5, z);
+            trunk.castShadow = true;
+            scene.add(trunk);
+            const leavesGeo = new THREE.SphereGeometry(1.5, 8, 8);
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0xD2691E });
+            const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+            leaves.position.set(x, y + 3.5, z);
+            leaves.castShadow = true;
+            scene.add(leaves);
+        }
+
+        const treePositions1 = [];
+        for (let i = 0; i < 20; i++) {
+            let attempts = 0, placed = false;
+            while (!placed && attempts < 100) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 3 + Math.random() * (ISLAND1_RADIUS - 5);
+                const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+                let tooClose = false;
+                for (const pos of treePositions1) {
+                    if (Math.hypot(pos.x - x, pos.z - z) < 5) { tooClose = true; break; }
+                }
+                if (!tooClose) { treePositions1.push({x, z}); createTree(x, z, ISLAND1_Y); placed = true; }
+                attempts++;
+            }
+        }
+        const treePositions2 = [];
+        for (let i = 0; i < 15; i++) {
+            let attempts = 0, placed = false;
+            while (!placed && attempts < 100) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 2 + Math.random() * (ISLAND2_RADIUS - 4);
+                const x = ISLAND2_OFFSET + Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+                let tooClose = false;
+                for (const pos of treePositions2) {
+                    if (Math.hypot(pos.x - x, pos.z - z) < 5) { tooClose = true; break; }
+                }
+                if (!tooClose) { treePositions2.push({x, z}); createTree(x, z, ISLAND2_Y); placed = true; }
+                attempts++;
+            }
+        }
+        // Деревья для третьего острова
+        const treePositions3 = [];
+        for (let i = 0; i < 20; i++) {
+            let attempts = 0, placed = false;
+            while (!placed && attempts < 100) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 2 + Math.random() * (ISLAND3_RADIUS - 4);
+                const x = ISLAND3_OFFSET + Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+                let tooClose = false;
+                for (const pos of treePositions3) {
+                    if (Math.hypot(pos.x - x, pos.z - z) < 5) { tooClose = true; break; }
+                }
+                if (!tooClose) { treePositions3.push({x, z}); createTree(x, z, ISLAND3_Y); placed = true; }
+                attempts++;
+            }
+        }
+
+        // ---------- КОМПОСТЕРЫ (добавлен компостер для третьего острова) ----------
+        const compostGeo = new THREE.CylinderGeometry(1.5, 1.5, 2, 16);
+        const compostMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
+        const compost1 = new THREE.Mesh(compostGeo, compostMat);
+        compost1.position.set(0, ISLAND1_Y + 1, 0); compost1.castShadow = true; scene.add(compost1);
+        const compost2 = new THREE.Mesh(compostGeo, compostMat);
+        compost2.position.set(ISLAND2_OFFSET, ISLAND2_Y + 1, 0); compost2.castShadow = true; scene.add(compost2);
+        const compost3 = new THREE.Mesh(compostGeo, compostMat);
+        compost3.position.set(ISLAND3_OFFSET, ISLAND3_Y + 1, 0); compost3.castShadow = true; scene.add(compost3);
+
+        // ---------- ЛИСТЬЯ (без изменений, но spawnLeaves обобщён) ----------
+        const leavesArray = [];
+        function createLeafShape() {
+            const shape = new THREE.Shape();
+            shape.moveTo(0, 0);
+            shape.bezierCurveTo(0.25, 0.1, 0.25, 0.3, 0, 0.6);
+            shape.bezierCurveTo(-0.25, 0.3, -0.25, 0.1, 0, 0);
+            return shape;
+        }
+        const leafGeo = new THREE.ShapeGeometry(createLeafShape());
+        leafGeo.rotateX(-Math.PI / 2);
+        const leafColors = [0xFFD700, 0xFFA500, 0xFF8C00, 0xFF6347, 0xDC143C, 0xCD853F];
+        const leafMaterials = leafColors.map(color => new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide, roughness: 0.7 }));
+
+        function spawnLeaves(count, islandId) {
+            const config = islandConfigs[islandId];
+            // Проверяем, что локация разблокирована
+            if (!config || !unlockedLocations.includes(islandId)) return;
+            let currentCount = 0;
+            for (const leaf of leavesArray) {
+                if (leaf.isCollected) continue;
+                const dx = leaf.position.x - config.offsetX, dz = leaf.position.z;
+                if (Math.sqrt(dx*dx + dz*dz) < config.radius) currentCount++;
+            }
+            const toSpawn = Math.min(count, (config.maxLeaves || 30) - currentCount);
+            if (toSpawn <= 0) return;
+            for (let i = 0; i < toSpawn; i++) {
+                const leaf = new THREE.Mesh(leafGeo, leafMaterials[Math.floor(Math.random() * leafMaterials.length)]);
+                leaf.rotation.y = Math.random() * Math.PI * 2;
+                leaf.rotation.z = (Math.random() - 0.5) * 0.3;
+                leaf.scale.setScalar(0.4 + Math.random() * 1.0);
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 2 + Math.random() * (config.radius - 4);
+                leaf.position.set(config.offsetX + Math.cos(angle) * radius, config.y + 0.05, Math.sin(angle) * radius);
+                leaf.isCollected = false; leaf.islandId = islandId;
+                scene.add(leaf); leavesArray.push(leaf);
+            }
+        }
+        spawnLeaves(40, 'island1');
+        spawnLeaves(30, 'island2');
+
+        // ---------- ЯБЛОКИ, ЦВЕТЫ, ГРИБЫ (обобщены для всех островов) ----------
+        const apples = [];
+        const appleGeo = new THREE.SphereGeometry(0.3, 8, 8);
+        const appleMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, roughness: 0.3 });
+        const appleStemGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.15);
+        const appleStemMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+
+        function spawnApple() {
+            // Яблоки только на втором острове (можно оставить как есть)
+            if (!unlockedLocations.includes('island2') || apples.length >= 5) return;
+            const config = islandConfigs.island2;
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 2 + Math.random() * (config.radius - 4);
+            const x = config.offsetX + Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+            const apple = new THREE.Mesh(appleGeo, appleMat);
+            apple.position.set(x, config.y + 0.5, z); apple.castShadow = true; apple.isCollected = false;
+            scene.add(apple);
+            const stem = new THREE.Mesh(appleStemGeo, appleStemMat);
+            stem.position.set(x, config.y + 0.65, z); stem.castShadow = true; scene.add(stem);
+            apple.userData.stem = stem; apples.push(apple);
+        }
+        const APPLE_SPAWN_INTERVAL = 10;
+        let lastAppleSpawnTime = 0;
+
+        const flowers = [];
+        function spawnFlower(islandId) {
+            const config = islandConfigs[islandId];
+            if (!config || !unlockedLocations.includes(islandId)) return;
+            let count = 0;
+            for (const f of flowers) {
+                if (f.isCollected) continue;
+                const dx = f.position.x - config.offsetX, dz = f.position.z;
+                if (Math.sqrt(dx*dx + dz*dz) < config.radius) count++;
+            }
+            if (count >= config.maxFlowers) return;
+
+            const color = new THREE.Color().setHSL(Math.random(), 0.8, 0.5);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshStandardMaterial({ color, roughness: 0.4 }));
+            head.position.y = 0.3;
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshStandardMaterial({ color: 0x2E8B57 }));
+            stem.position.y = -0.2;
+            const group = new THREE.Group();
+            group.add(head); group.add(stem);
+
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 2 + Math.random() * (config.radius - 4);
+            group.position.set(config.offsetX + Math.cos(angle) * radius, config.y + 0.1, Math.sin(angle) * radius);
+            group.scale.setScalar(0.5 + Math.random() * 0.6);
+            group.rotation.y = Math.random() * Math.PI * 2;
+            group.castShadow = true; scene.add(group);
+            group.isCollected = false; group.islandId = islandId;
+            flowers.push(group);
+        }
+
+        const mushrooms = [];
+        function spawnMushroom(islandId) {
+            const config = islandConfigs[islandId];
+            if (!config || !unlockedLocations.includes(islandId)) return;
+            let count = 0;
+            for (const m of mushrooms) {
+                if (m.isCollected) continue;
+                const dx = m.position.x - config.offsetX, dz = m.position.z;
+                if (Math.sqrt(dx*dx + dz*dz) < config.radius) count++;
+            }
+            if (count >= config.maxMushrooms) return;
+
+            const group = new THREE.Group();
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.4, 6), new THREE.MeshStandardMaterial({ color: 0xF5DEB3, roughness: 0.9 }));
+            stem.position.y = 0; group.add(stem);
+
+            const points = [];
+            points.push(new THREE.Vector2(0, 0.35)); points.push(new THREE.Vector2(0.05, 0.32));
+            points.push(new THREE.Vector2(0.15, 0.25)); points.push(new THREE.Vector2(0.3, 0.1));
+            points.push(new THREE.Vector2(0.35, 0.0)); points.push(new THREE.Vector2(0.3, -0.02));
+            points.push(new THREE.Vector2(0.0, -0.02));
+            const capGeo = new THREE.LatheGeometry(points, 8);
+            
+            const hue = Math.random();
+            let color, isRed = false;
+            if (hue < 0.33) color = 0x8B4513;
+            else if (hue < 0.66) color = 0xCD853F;
+            else { color = 0xCC0000; isRed = true; }
+            
+            const capMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, side: THREE.DoubleSide });
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.y = 0.2; group.add(cap);
+
+            if (isRed) {
+                const dotMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.5, side: THREE.DoubleSide });
+                for (let i = 0; i < 6 + Math.floor(Math.random() * 5); i++) {
+                    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.03 + Math.random()*0.03, 4, 4), dotMat);
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 0.1 + Math.random() * 0.2;
+                    dot.position.set(Math.cos(angle) * radius, 0.25 + Math.random() * 0.1, Math.sin(angle) * radius);
+                    group.add(dot);
+                }
+            }
+
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 2 + Math.random() * (config.radius - 4);
+            group.position.set(config.offsetX + Math.cos(angle) * radius, config.y + 0.05, Math.sin(angle) * radius);
+            group.scale.setScalar(0.7 + Math.random() * 0.6);
+            group.rotation.y = Math.random() * Math.PI * 2;
+            group.castShadow = true; scene.add(group);
+            group.isCollected = false; group.islandId = islandId;
+            mushrooms.push(group);
+        }
+
+        // Первоначальное наполнение первых двух островов (третий ещё заперт)
+        for (let i = 0; i < 5; i++) { spawnFlower('island1'); spawnMushroom('island1'); }
+        if (unlockedLocations.includes('island2')) {
+            for (let i = 0; i < 5; i++) { spawnFlower('island2'); spawnMushroom('island2'); }
+        }
+
+        // ---------- ИГРОК (без изменений) ----------
+        const player = { x: 0, z: 8, y: ISLAND1_Y, yaw: 0, pitch: 0, offsetY: 0 };
+        const MAX_RADIUS = 18; // ограничение для первого острова, пока не куплен второй
+        const BRIDGE_HALF_WIDTH = 1.5;
+        let verticalVelocity = 0;
+        let isGrounded = true;
+
+        let maxLeaves = bagsData[currentBagIndex].capacity;
+        const moveSpeed = 0.06;
+        const smoothFactor = 0.12;
+        let currentVelocity = new THREE.Vector3(0, 0, 0);
+        let targetVelocity = new THREE.Vector3(0, 0, 0);
+        let targetYaw = player.yaw;
+        let targetPitch = player.pitch;
+        const cameraSmoothFactor = 0.8;
+        let isPaused = false;
+
+        // ---------- UI ЭЛЕМЕНТЫ (без изменений) ----------
+        const uiCoins = document.getElementById('coinCount');
+        const uiToolName = document.getElementById('currentToolName');
+        const actionBtn = document.getElementById('action-btn');
+        const jumpBtn = document.getElementById('jump-btn');
+        const notification = document.getElementById('notification');
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystickHandle = document.getElementById('joystick-handle');
+        const shopBtn = document.getElementById('shop-btn');
+        const shopModal = document.getElementById('shop-modal');
+        const shopClose = document.getElementById('shop-close');
+        const toolsList = document.getElementById('tools-list');
+        const bagsList = document.getElementById('bags-list');
+        const locationsList = document.getElementById('locations-list');
+        const shopTabs = document.querySelectorAll('.shop-tab');
+        const cameraZone = document.getElementById('camera-zone');
+        const shopCoinsEl = document.getElementById('shop-coins');
+        const bagProgressFill = document.getElementById('bag-progress-fill');
+        const bagProgressText = document.getElementById('bag-progress-text');
+
+        function updateUI() {
+            uiCoins.innerText = coins;
+            uiToolName.innerText = toolsData[currentToolIndex].name;
+            shopCoinsEl.innerText = `💰 Монет: ${coins}`;
+            const progress = (currentLeaves / maxLeaves) * 100;
+            bagProgressFill.style.width = progress + '%';
+            bagProgressText.innerText = `${currentLeaves} / ${maxLeaves}`;
+        }
+        updateUI();
+
+        function showNotification(text) {
+            notification.innerText = text;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 1500);
+        }
+
+        // ---------- МАГАЗИН (обновлён для третьего острова) ----------
+        function openShop() {
+            isPaused = true;
+            updateUI();
+            shopModal.classList.add('active');
+            if (document.pointerLockElement) document.exitPointerLock();
+            renderShopItems();
+        }
+        function closeShop() {
+            isPaused = false;
+            shopModal.classList.remove('active');
+        }
+
+        function renderShopItems() {
+            toolsList.innerHTML = '';
+            toolsData.forEach((tool, index) => {
+                const item = document.createElement('div');
+                item.className = 'shop-item';
+                if (index === currentToolIndex) item.classList.add('current');
+                if (index < currentToolIndex) item.classList.add('owned');
+                let btnText, btnClass, disabled;
+                if (index === currentToolIndex) { btnText = '✓ Используется'; btnClass = 'buy-btn owned-btn'; disabled = true; }
+                else if (index < currentToolIndex) { btnText = '✓ Куплено'; btnClass = 'buy-btn owned-btn'; disabled = true; }
+                else if (index > currentToolIndex + 1) { btnText = `💰 ${tool.price}`; btnClass = 'buy-btn'; disabled = true; }
+                else { btnText = `💰 ${tool.price}`; btnClass = 'buy-btn'; disabled = coins < tool.price; }
+                item.innerHTML = `<div class="item-info"><div class="item-name">${tool.name}</div><div class="item-desc">${tool.desc}</div></div><button class="${btnClass}" ${disabled ? 'disabled' : ''} data-index="${index}" data-type="tool">${btnText}</button>`;
+                toolsList.appendChild(item);
+            });
+
+            bagsList.innerHTML = '';
+            bagsData.forEach((bag, index) => {
+                const item = document.createElement('div');
+                item.className = 'shop-item';
+                if (index === currentBagIndex) item.classList.add('current');
+                if (index < currentBagIndex) item.classList.add('owned');
+                let btnText, btnClass, disabled;
+                if (index === currentBagIndex) { btnText = '✓ Используется'; btnClass = 'buy-btn owned-btn'; disabled = true; }
+                else if (index < currentBagIndex) { btnText = '✓ Куплено'; btnClass = 'buy-btn owned-btn'; disabled = true; }
+                else if (index > currentBagIndex + 1) { btnText = `💰 ${bag.price}`; btnClass = 'buy-btn'; disabled = true; }
+                else { btnText = `💰 ${bag.price}`; btnClass = 'buy-btn'; disabled = coins < bag.price; }
+                item.innerHTML = `<div class="item-info"><div class="item-name">${bag.name}</div><div class="item-desc">${bag.desc}</div></div><button class="${btnClass}" ${disabled ? 'disabled' : ''} data-index="${index}" data-type="bag">${btnText}</button>`;
+                bagsList.appendChild(item);
+            });
+
+            locationsList.innerHTML = '';
+            locationsData.forEach((location, index) => {
+                const item = document.createElement('div');
+                item.className = 'shop-item';
+                const isUnlocked = unlockedLocations.includes(location.id);
+                if (isUnlocked) item.classList.add('owned');
+                let btnText, btnClass, disabled;
+                if (isUnlocked) { btnText = '✓ Открыто'; btnClass = 'buy-btn owned-btn'; disabled = true; }
+                else { btnText = `💰 ${location.price}`; btnClass = 'buy-btn'; disabled = coins < location.price; }
+                item.innerHTML = `<div class="item-info"><div class="item-name">${location.name}</div><div class="item-desc">${location.desc}</div></div><button class="${btnClass}" ${disabled ? 'disabled' : ''} data-index="${index}" data-type="location">${btnText}</button>`;
+                locationsList.appendChild(item);
+            });
+
+            document.querySelectorAll('.buy-btn:not(.owned-btn)').forEach(btn => {
+                if (!btn.disabled) {
+                    btn.addEventListener('click', () => {
+                        const index = parseInt(btn.dataset.index);
+                        const type = btn.dataset.type;
+                        if (type === 'tool' && coins >= toolsData[index].price) {
+                            coins -= toolsData[index].price; currentToolIndex = index; playBuySound(); 
+                            showNotification(`Куплено: ${toolsData[index].name}!`);
+                            buildHand(currentToolIndex);
+                        } else if (type === 'bag' && coins >= bagsData[index].price) {
+                            coins -= bagsData[index].price; currentBagIndex = index; maxLeaves = bagsData[index].capacity; playBuySound(); 
+                            showNotification(`Куплено: ${bagsData[index].name}!`);
+                        } else if (type === 'location' && coins >= locationsData[index].price) {
+                            coins -= locationsData[index].price;
+                            const locId = locationsData[index].id;
+                            unlockedLocations.push(locId);
+                            playUnlockSound(); showNotification(`Открыто: ${locationsData[index].name}!`);
+                            // Удаляем барьер
+                            if (barriers[locId]) {
+                                scene.remove(barriers[locId]);
+                            }
+                            // Дополнительно спавним начальные предметы для нового острова
+                            if (locId === 'island3') {
+                                spawnLeaves(35, 'island3');
+                                for (let i = 0; i < 5; i++) { spawnFlower('island3'); spawnMushroom('island3'); }
+                            }
+                            // Если открыт остров 2, то можно спавнить яблоки (уже есть в animate)
+                        }
+                        saveProgress(); updateUI(); renderShopItems();
+                    });
+                }
+            });
+        }
+
+        shopTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                shopTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const tabName = tab.dataset.tab;
+                toolsList.style.display = tabName === 'tools' ? 'flex' : 'none';
+                bagsList.style.display = tabName === 'bags' ? 'flex' : 'none';
+                locationsList.style.display = tabName === 'locations' ? 'flex' : 'none';
+            });
+        });
+
+        shopBtn.addEventListener('click', (e) => { e.stopPropagation(); initAudio(); openShop(); });
+        shopClose.addEventListener('click', closeShop);
+
+        // ----- ОБРАБОТЧИК КЛАВИШ (без изменений, кроме проверки новой локации) -----
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyM' && !isPaused) { initAudio(); openShop(); }
+            if (e.code === 'Escape' && isPaused) closeShop();
+            if (e.code === 'Space' && !isPaused) { e.preventDefault(); jump(); }
+            
+            if (e.code === 'KeyG' && !isPaused) {
+                coins += 1000;
+                saveProgress();
+                updateUI();
+                showNotification('💰 +1000 монет (чит)');
+                playCoinSound();
+            }
+            if (e.code === 'KeyU' && !isPaused) {
+                coins = 9999;
+                currentToolIndex = toolsData.length - 1;
+                currentBagIndex = bagsData.length - 1;
+                maxLeaves = bagsData[currentBagIndex].capacity;
+                locationsData.forEach(loc => {
+                    if (!unlockedLocations.includes(loc.id)) {
+                        unlockedLocations.push(loc.id);
+                    }
+                });
+                // Удаляем все барьеры
+                for (const id in barriers) {
+                    scene.remove(barriers[id]);
+                }
+                buildHand(currentToolIndex);
+                saveProgress();
+                updateUI();
+                showNotification('🌀 Всё разблокировано!');
+                playUnlockSound();
+            }
+            if (e.code === 'KeyR' && !isPaused) {
+                currentToolIndex = 0;
+                currentBagIndex = 0;
+                maxLeaves = bagsData[0].capacity;
+                coins = 0;
+                currentLeaves = 0;
+                unlockedLocations = ['island1'];
+                // Возвращаем барьеры
+                for (const id in barriers) {
+                    if (!scene.children.includes(barriers[id])) {
+                        scene.add(barriers[id]);
+                    }
+                }
+                buildHand(currentToolIndex);
+                saveProgress();
+                updateUI();
+                showNotification('🔄 Прогресс сброшен!');
+                playSound(300, 0.3, 'sawtooth', 0.2);
+            }
+        });
+
+        // ---------- ДЖОЙСТИК (без изменений) ----------
+        let joystickActive = false, joystickVector = { x: 0, y: 0 };
+        function handleJoystickStart(e) { if (isPaused) return; e.preventDefault(); e.stopPropagation(); joystickActive = true; handleJoystickMove(e); }
+        function handleJoystickMove(e) {
+            if (!joystickActive || isPaused) return; e.preventDefault();
+            const rect = joystickContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            let dx = clientX - centerX, dy = clientY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy), maxDistance = rect.width / 2;
+            if (distance > maxDistance) { dx = (dx / distance) * maxDistance; dy = (dy / distance) * maxDistance; }
+            joystickHandle.style.transition = 'none';
+            joystickHandle.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            joystickVector.x = dx / maxDistance; joystickVector.y = dy / maxDistance;
+        }
+        function handleJoystickEnd(e) {
+            if(e) e.preventDefault(); joystickActive = false;
+            joystickHandle.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            joystickHandle.style.transform = 'translate(-50%, -50%)';
+            joystickVector.x = 0; joystickVector.y = 0;
+        }
+        joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false });
+        joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false });
+        joystickContainer.addEventListener('touchend', handleJoystickEnd, { passive: false });
+        joystickContainer.addEventListener('touchcancel', handleJoystickEnd, { passive: false });
+        joystickContainer.addEventListener('mousedown', handleJoystickStart);
+        window.addEventListener('mousemove', (e) => { if (joystickActive) handleJoystickMove(e); });
+        window.addEventListener('mouseup', handleJoystickEnd);
+        window.addEventListener('mouseleave', handleJoystickEnd);
+        document.addEventListener('touchend', (e) => { if (joystickActive) handleJoystickEnd(e); }, { passive: false });
+        document.addEventListener('touchcancel', (e) => { if (joystickActive) handleJoystickEnd(e); }, { passive: false });
+
+        // ---------- УПРАВЛЕНИЕ КАМЕРОЙ (без изменений) ----------
+        let cameraTouchStart = { x: 0, y: 0 };
+        cameraZone.addEventListener('touchstart', (e) => { 
+            if (isPaused || e.target !== cameraZone) return; e.preventDefault();
+            cameraTouchStart.x = e.touches[0].clientX; cameraTouchStart.y = e.touches[0].clientY; 
+        }, { passive: false });
+        cameraZone.addEventListener('touchmove', (e) => {
+            if (isPaused) return; e.preventDefault();
+            targetYaw -= (e.touches[0].clientX - cameraTouchStart.x) * 0.005;
+            targetPitch -= (e.touches[0].clientY - cameraTouchStart.y) * 0.005;
+            targetPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, targetPitch));
+            cameraTouchStart.x = e.touches[0].clientX; cameraTouchStart.y = e.touches[0].clientY;
+        }, { passive: false });
+        cameraZone.addEventListener('touchend', (e) => { e.preventDefault(); }, { passive: false });
+        cameraZone.addEventListener('touchcancel', (e) => { e.preventDefault(); }, { passive: false });
+        cameraZone.addEventListener('click', (e) => { if (!isPaused && e.target === cameraZone) cameraZone.requestPointerLock(); });
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function resetAllControls() {
+            for (let key in keys) keys[key] = false;
+            joystickActive = false; 
+            joystickHandle.style.transition = 'transform 0.2s ease-out';
+            joystickHandle.style.transform = 'translate(-50%, -50%)';
+            joystickVector.x = 0; joystickVector.y = 0;
+            currentVelocity.set(0,0,0); targetVelocity.set(0,0,0);
+            targetYaw = player.yaw; targetPitch = player.pitch;
+            cameraZone.style.cursor = 'crosshair';
+            verticalVelocity = 0; isGrounded = true; player.offsetY = 0;
+        }
+        document.addEventListener('pointerlockchange', () => {
+            const locked = document.pointerLockElement === cameraZone;
+            cameraZone.style.cursor = locked ? 'none' : 'crosshair';
+            if (!locked) resetAllControls();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === cameraZone && !isPaused) {
+                targetYaw -= e.movementX * 0.002;
+                targetPitch -= e.movementY * 0.002;
+                targetPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, targetPitch));
+            }
+        });
+        window.addEventListener('blur', resetAllControls);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) resetAllControls(); });
+
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        // ---------- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СБОРА (без изменений) ----------
+        function tryCollect() {
+            if (isPaused) return;
+            handSwing = 1.0;
+            
+            const tool = toolsData[currentToolIndex];
+            const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+            const targetX = player.x + forward.x * COLLECT_OFFSET;
+            const targetZ = player.z + forward.z * COLLECT_OFFSET;
+            const radius = tool.radius;
+
+            if (currentLeaves < maxLeaves) {
+                let collectedLeaves = 0;
+                for (let i = leavesArray.length - 1; i >= 0; i--) {
+                    if (collectedLeaves >= tool.perCollect || currentLeaves >= maxLeaves) break;
+                    const leaf = leavesArray[i];
+                    if (leaf.isCollected) continue;
+                    const dist = Math.sqrt(Math.pow(leaf.position.x - targetX, 2) + Math.pow(leaf.position.z - targetZ, 2));
+                    if (dist < radius) { leaf.isCollected = true; currentLeaves++; collectedLeaves++; playCollectSound(); }
+                }
+                if (collectedLeaves > 0) updateUI();
+            }
+
+            for (let i = apples.length - 1; i >= 0; i--) {
+                const apple = apples[i];
+                if (apple.isCollected) continue;
+                const dist = Math.sqrt(Math.pow(apple.position.x - targetX, 2) + Math.pow(apple.position.z - targetZ, 2));
+                if (dist < radius) {
+                    apple.isCollected = true; scene.remove(apple);
+                    if (apple.userData.stem) scene.remove(apple.userData.stem);
+                    apples.splice(i, 1); coins += 5; playAppleSound(); showNotification('🍎 +5 монет!'); updateUI(); break;
+                }
+            }
+
+            for (let i = flowers.length - 1; i >= 0; i--) {
+                const flower = flowers[i];
+                if (flower.isCollected) continue;
+                const dist = Math.sqrt(Math.pow(flower.position.x - targetX, 2) + Math.pow(flower.position.z - targetZ, 2));
+                if (dist < radius) {
+                    flower.isCollected = true; scene.remove(flower); flowers.splice(i, 1);
+                    coins += 2; playFlowerSound(); showNotification('🌸 +2 монет!'); updateUI(); break;
+                }
+            }
+
+            for (let i = mushrooms.length - 1; i >= 0; i--) {
+                const mushroom = mushrooms[i];
+                if (mushroom.isCollected) continue;
+                const dist = Math.sqrt(Math.pow(mushroom.position.x - targetX, 2) + Math.pow(mushroom.position.z - targetZ, 2));
+                if (dist < radius) {
+                    mushroom.isCollected = true; scene.remove(mushroom); mushrooms.splice(i, 1);
+                    coins += 3; playMushroomSound(); showNotification('🍄 +3 монет!'); updateUI(); break;
+                }
+            }
+        }
+
+        // ---------- ПРЫЖОК (без изменений) ----------
+        function jump() {
+            if (isPaused || !isGrounded) return;
+            verticalVelocity = 0.25; isGrounded = false; playJumpSound();
+        }
+
+        // ---------- КНОПКИ (без изменений) ----------
+        actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); initAudio(); tryCollect(); }, { passive: false });
+        actionBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); initAudio(); tryCollect(); });
+        jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); initAudio(); jump(); }, { passive: false });
+        jumpBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); initAudio(); jump(); });
+
+        // ---------- ОСНОВНОЙ ЦИКЛ АНИМАЦИИ (обновлён с учётом третьего острова) ----------
+        let lastSpawnTime1 = 0, lastSpawnTime2 = 0, lastSpawnTime3 = 0;
+        let lastFlowerSpawn1 = 0, lastFlowerSpawn2 = 0, lastFlowerSpawn3 = 0;
+        let lastMushroomSpawn1 = 0, lastMushroomSpawn2 = 0, lastMushroomSpawn3 = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = Date.now() * 0.001;
+
+            floatingRocks.forEach(rock => {
+                rock.mesh.position.y = rock.baseY + Math.sin(time * rock.speed + rock.offset) * 0.5;
+                rock.mesh.rotation.y += 0.002;
+            });
+            clouds.forEach((cloud, index) => { cloud.rotation.y += 0.0002 * (index % 2 === 0 ? 1 : -1); });
+
+            for (let i = leavesArray.length - 1; i >= 0; i--) {
+                const leaf = leavesArray[i];
+                if (leaf.isCollected) {
+                    leaf.scale.setScalar(Math.max(0.01, leaf.scale.x * 0.8));
+                    if (leaf.scale.x <= 0.02) { scene.remove(leaf); leavesArray.splice(i, 1); }
+                }
+            }
+
+            if (isPaused) { renderer.render(scene, camera); return; }
+
+            // Спавн листьев
+            if (time - lastSpawnTime1 > islandConfigs.island1.spawnRate) { spawnLeaves(3, 'island1'); lastSpawnTime1 = time; }
+            if (unlockedLocations.includes('island2') && time - lastSpawnTime2 > islandConfigs.island2.spawnRate) { spawnLeaves(4, 'island2'); lastSpawnTime2 = time; }
+            if (unlockedLocations.includes('island3') && time - lastSpawnTime3 > islandConfigs.island3.spawnRate) { spawnLeaves(5, 'island3'); lastSpawnTime3 = time; }
+
+            // Яблоки (только на втором острове)
+            if (unlockedLocations.includes('island2') && time - lastAppleSpawnTime > APPLE_SPAWN_INTERVAL) {
+                if (Math.random() < 0.4) spawnApple(); lastAppleSpawnTime = time;
+            }
+
+            // Цветы
+            if (time - lastFlowerSpawn1 > islandConfigs.island1.flowerSpawnRate) { spawnFlower('island1'); lastFlowerSpawn1 = time; }
+            if (unlockedLocations.includes('island2') && time - lastFlowerSpawn2 > islandConfigs.island2.flowerSpawnRate) { spawnFlower('island2'); lastFlowerSpawn2 = time; }
+            if (unlockedLocations.includes('island3') && time - lastFlowerSpawn3 > islandConfigs.island3.flowerSpawnRate) { spawnFlower('island3'); lastFlowerSpawn3 = time; }
+
+            // Грибы
+            if (time - lastMushroomSpawn1 > islandConfigs.island1.mushroomSpawnRate) { spawnMushroom('island1'); lastMushroomSpawn1 = time; }
+            if (unlockedLocations.includes('island2') && time - lastMushroomSpawn2 > islandConfigs.island2.mushroomSpawnRate) { spawnMushroom('island2'); lastMushroomSpawn2 = time; }
+            if (unlockedLocations.includes('island3') && time - lastMushroomSpawn3 > islandConfigs.island3.mushroomSpawnRate) { spawnMushroom('island3'); lastMushroomSpawn3 = time; }
+
+            // Движение
+            targetVelocity.set(0, 0, 0);
+            let moveX = joystickVector.x, moveZ = joystickVector.y;
+            if (keys['KeyW']) moveZ = -1; if (keys['KeyS']) moveZ = 1;
+            if (keys['KeyA']) moveX = -1; if (keys['KeyD']) moveX = 1;
+            if (keys['KeyE']) { tryCollect(); keys['KeyE'] = false; }
+
+            const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+            const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+            targetVelocity.addScaledVector(forward, -moveZ * moveSpeed);
+            targetVelocity.addScaledVector(right, moveX * moveSpeed);
+
+            currentVelocity.lerp(targetVelocity, smoothFactor);
+            player.x += currentVelocity.x; player.z += currentVelocity.z;
+
+            // Ограничения по островам и мостам
+            const distFromCenter1 = Math.sqrt(player.x * player.x + player.z * player.z);
+            const distFromCenter2 = Math.sqrt(Math.pow(player.x - ISLAND2_OFFSET, 2) + player.z * player.z);
+            const distFromCenter3 = Math.sqrt(Math.pow(player.x - ISLAND3_OFFSET, 2) + player.z * player.z);
+
+            // Проверка на мостах
+            const onBridge1 = (player.x >= bridge1StartX - 0.5 && player.x <= bridge1EndX + 0.5 && Math.abs(player.z) <= BRIDGE_HALF_WIDTH);
+            const onBridge2 = (player.x >= bridge2StartX - 0.5 && player.x <= bridge2EndX + 0.5 && Math.abs(player.z) <= BRIDGE_HALF_WIDTH);
+
+            if (onBridge1 && unlockedLocations.includes('island2')) {
+                const progress = (player.x - bridge1StartX) / deltaX1;
+                player.y = bridge1StartY + (bridge1EndY - bridge1StartY) * progress;
+                if (player.z > BRIDGE_HALF_WIDTH) player.z = BRIDGE_HALF_WIDTH;
+                if (player.z < -BRIDGE_HALF_WIDTH) player.z = -BRIDGE_HALF_WIDTH;
+            } else if (onBridge2 && unlockedLocations.includes('island3')) {
+                const progress = (player.x - bridge2StartX) / deltaX2;
+                player.y = bridge2StartY + (bridge2EndY - bridge2StartY) * progress;
+                if (player.z > BRIDGE_HALF_WIDTH) player.z = BRIDGE_HALF_WIDTH;
+                if (player.z < -BRIDGE_HALF_WIDTH) player.z = -BRIDGE_HALF_WIDTH;
+            } else if (distFromCenter3 < ISLAND3_RADIUS && unlockedLocations.includes('island3')) {
+                player.y = ISLAND3_Y;
+                if (distFromCenter3 > ISLAND3_RADIUS) {
+                    const scale = ISLAND3_RADIUS / distFromCenter3;
+                    player.x = ISLAND3_OFFSET + (player.x - ISLAND3_OFFSET) * scale;
+                    player.z = player.z * scale;
+                }
+            } else if (distFromCenter2 < ISLAND2_RADIUS && unlockedLocations.includes('island2')) {
+                player.y = ISLAND2_Y;
+                // Если третий остров ещё не открыт, не пускаем на второй мост
+                if (!unlockedLocations.includes('island3') && player.x > bridge2StartX && Math.abs(player.z) <= BRIDGE_HALF_WIDTH) {
+                    player.x = bridge2StartX;
+                }
+                if (distFromCenter2 > ISLAND2_RADIUS) {
+                    const scale = ISLAND2_RADIUS / distFromCenter2;
+                    player.x = ISLAND2_OFFSET + (player.x - ISLAND2_OFFSET) * scale;
+                    player.z = player.z * scale;
+                }
+            } else {
+                player.y = ISLAND1_Y;
+                const island1Limit = unlockedLocations.includes('island2') ? ISLAND1_RADIUS : MAX_RADIUS;
+                if (distFromCenter1 > island1Limit) {
+                    const scale = island1Limit / distFromCenter1;
+                    player.x *= scale; player.z *= scale;
+                }
+            }
+
+            if (!isGrounded) {
+                verticalVelocity += -0.015; player.offsetY += verticalVelocity;
+                if (player.offsetY <= 0) { player.offsetY = 0; verticalVelocity = 0; isGrounded = true; }
+            }
+
+            player.yaw += (targetYaw - player.yaw) * cameraSmoothFactor;
+            player.pitch += (targetPitch - player.pitch) * cameraSmoothFactor;
+
+            camera.position.x = player.x; camera.position.z = player.z;
+            camera.position.y = player.y + player.offsetY + 1.7;
+            camera.rotation.order = 'YXZ'; camera.rotation.y = player.yaw; camera.rotation.x = player.pitch;
+
+            // ---------- АНИМАЦИЯ РУКИ (без изменений) ----------
+            const isMoving = currentVelocity.length() > 0.01;
+            if (isMoving && isGrounded) {
+                handBob += 0.15;
+                handModel.position.y = -0.4 + Math.sin(handBob) * 0.03;
+                handModel.position.x = 0.5 + Math.cos(handBob * 0.5) * 0.02;
+            } else {
+                handModel.position.y += (-0.4 - handModel.position.y) * 0.1;
+                handModel.position.x += (0.5 - handModel.position.x) * 0.1;
+            }
+
+            if (handSwing > 0) {
+                handSwing *= 0.92;
+                if (handSwing < 0.001) handSwing = 0;
+                handModel.position.z = -0.8 + Math.sin(handSwing * Math.PI) * 0.3;
+                handModel.rotation.x = 0.3 + Math.sin(handSwing * Math.PI) * 0.5;
+            } else {
+                handModel.position.z += (-0.8 - handModel.position.z) * 0.1;
+                handModel.rotation.x += (0.3 - handModel.rotation.x) * 0.1;
+            }
+            
+            if (currentToolIndex === 8 && handModel.children.length > 2) {
+                const orb = handModel.children[2];
+                orb.position.y = 0.1 + Math.sin(time * 3) * 0.02;
+                orb.rotation.y += 0.05;
+            }
+
+            // ---------- ЗОНА СБОРА (без изменений) ----------
+            const tool = toolsData[currentToolIndex];
+            const radius = tool.radius;
+            const fwd = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+            const targetX = player.x + fwd.x * COLLECT_OFFSET;
+            const targetZ = player.z + fwd.z * COLLECT_OFFSET;
+
+            zoneCircle.scale.set(radius, radius, 1); zoneEdge.scale.set(radius, radius, 1);
+            zoneCircle.position.set(targetX, player.y + 0.05, targetZ);
+            zoneEdge.position.set(targetX, player.y + 0.05, targetZ);
+
+            let hasTarget = false;
+            for (const leaf of leavesArray) {
+                if (!leaf.isCollected && Math.sqrt(Math.pow(leaf.position.x - targetX, 2) + Math.pow(leaf.position.z - targetZ, 2)) < radius) { hasTarget = true; break; }
+            }
+            if (!hasTarget) {
+                for (const apple of apples) {
+                    if (!apple.isCollected && Math.sqrt(Math.pow(apple.position.x - targetX, 2) + Math.pow(apple.position.z - targetZ, 2)) < radius) { hasTarget = true; break; }
+                }
+            }
+            if (!hasTarget) {
+                for (const flower of flowers) {
+                    if (!flower.isCollected && Math.sqrt(Math.pow(flower.position.x - targetX, 2) + Math.pow(flower.position.z - targetZ, 2)) < radius) { hasTarget = true; break; }
+                }
+            }
+            if (!hasTarget) {
+                for (const mushroom of mushrooms) {
+                    if (!mushroom.isCollected && Math.sqrt(Math.pow(mushroom.position.x - targetX, 2) + Math.pow(mushroom.position.z - targetZ, 2)) < radius) { hasTarget = true; break; }
+                }
+            }
+            const targetColor = hasTarget ? 0x00ff00 : 0xff0000;
+            zoneCircleMat.color.setHex(targetColor); zoneEdgeMat.color.setHex(targetColor);
+
+            if (hasTarget) actionBtn.classList.add('active');
+            else actionBtn.classList.remove('active');
+
+            // ---------- СДАЧА ЛИСТЬЕВ (обновлено для третьего компостера) ----------
+            const distToCompost1 = Math.sqrt(player.x * player.x + player.z * player.z);
+            const distToCompost2 = Math.sqrt(Math.pow(player.x - ISLAND2_OFFSET, 2) + player.z * player.z);
+            const distToCompost3 = Math.sqrt(Math.pow(player.x - ISLAND3_OFFSET, 2) + player.z * player.z);
+            
+            if (currentLeaves > 0) {
+                let islandId = null;
+                if (distToCompost1 < 3.0) islandId = 'island1';
+                else if (distToCompost2 < 3.0 && unlockedLocations.includes('island2')) islandId = 'island2';
+                else if (distToCompost3 < 3.0 && unlockedLocations.includes('island3')) islandId = 'island3';
+                
+                if (islandId) {
+                    const price = islandConfigs[islandId].pricePerLeaf;
+                    const earned = currentLeaves * price;
+                    coins += earned; playCoinSound();
+                    showNotification(`+${earned} монет (${price} за лист)!`);
+                    currentLeaves = 0; saveProgress(); updateUI();
+                    spawnLeaves(6, islandId);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // ---------- ИНИЦИАЛИЗАЦИЯ (учёт третьего острова) ----------
+        if (unlockedLocations.includes('island2')) {
+            scene.remove(barrier1);
+        }
+        if (unlockedLocations.includes('island3')) {
+            scene.remove(barrier2);
+            // Если третий уже открыт при загрузке, то нужно спавнить листья и т.д.
+            spawnLeaves(35, 'island3');
+            for (let i = 0; i < 5; i++) { spawnFlower('island3'); spawnMushroom('island3'); }
+        }
+        buildHand(currentToolIndex);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        setTimeout(() => {
+            for (let i = 0; i < 3; i++) spawnApple();
+            for (let i = 0; i < 5; i++) { spawnFlower('island1'); spawnMushroom('island1'); }
+            if (unlockedLocations.includes('island2')) {
+                for (let i = 0; i < 5; i++) { spawnFlower('island2'); spawnMushroom('island2'); }
+            }
+            if (unlockedLocations.includes('island3')) {
+                for (let i = 0; i < 5; i++) { spawnFlower('island3'); spawnMushroom('island3'); }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
